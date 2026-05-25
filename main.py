@@ -46,7 +46,7 @@ def load_positions():
         return {}
     try:
         with open(POSITIONS_FILE, "r") as f:
-            positions = json.load(f)
+            return json.load(f)
     except (json.JSONDecodeError, Exception) as ex:
         print(f"Could not load positions.json: {ex}")
         return {}

@@ -127,7 +127,7 @@ class OrderManager:
                 return
 
         # Priority 4: Time limit
-        entry_date = dt.datetime.fromisoformat(position['entry_date'])
+        entry_date = dt.date.fromisoformat(str(position["entry_date"])[:10])
         days_held = (dt.date.today() - entry_date).days
 
         if days_held >= self.max_hold_days:
@@ -282,7 +282,7 @@ class OrderManager:
                   f"{'Allocated':>12}  {'Day':>6}")
             print(f"  {'-' * 67}")
             for symbol, position in self.positions.items():
-                entry_date = dt.date.fromisoformat(position["entry_date"])
+                entry_date = dt.date.fromisoformat(str(position["entry_date"])[:10])
                 days = (dt.date.today() - entry_date).days
                 allocated = position["qty"] * position["entry_price"]
 
