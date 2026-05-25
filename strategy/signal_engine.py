@@ -1,25 +1,13 @@
-from config.connect import get_session
 from data.fetch_historical import fetch_candles
 from config.universe import get_universe
 from config.universe import get_tradeable_stocks
 
-import yfinance as yf
 import pandas as pd
 from indicators.technical import add_all_indicators
 
 def get_candles(session, symbol, interval, from_date, to_date):
     df = fetch_candles(session, symbol, interval, from_date, to_date)
     return df
-
-    # if selected_data_source == 'smartapi':
-    #     session = get_session()
-    #     df = fetch_candles(session, symbol, interval, from_date, to_date)
-    #     return df
-    # else:
-    #     df = yf.download(tickers=symbol, start=from_date, end=to_date, interval=interval, multi_level_index=False)
-    #     df.dropna(inplace=True, how='all')
-    #     df.rename(columns={'High': 'high', 'Low': 'low', 'Open': 'open', 'Close': 'close', 'Volume': 'volume'}, inplace=True)
-    #     return df
 
 def score_bar(row):
     score = 0
