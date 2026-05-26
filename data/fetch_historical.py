@@ -1,7 +1,10 @@
+import time
 import pandas as pd
 from config.connect import get_session
 from data.instruments import get_token
 
+# AngelOne rate limit: ~1 request per second for historical data
+API_CALL_DELAY = 1.0   # seconds to wait after every getCandleData call
 
 def fetch_candles(obj, symbol, interval, from_date, to_date):
     """
@@ -32,6 +35,9 @@ def fetch_candles(obj, symbol, interval, from_date, to_date):
 
     print(f"Fetching {interval} candles for {symbol} ({trading_symbol}) ...")
     res = obj.getCandleData(params)
+
+    # Always wait after every API call — rate limit guard
+    time.sleep(API_CALL_DELAY)
 
     if not res["status"]:
         raise Exception(f"getCandleData failed for {symbol}: {res['message']}")
