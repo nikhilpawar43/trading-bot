@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 from config.connect import get_session
@@ -34,6 +35,7 @@ def main():
 
     try:
         session = get_session()
+        time.sleep(2)   # let the session settle before first data call
     except Exception as ex:
         print(f"\n✗ Authentication failed: {ex}")
         print(f"Check API key, MPIN and TOTP secret in your .env file.\n")

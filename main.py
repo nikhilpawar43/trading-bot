@@ -1,4 +1,5 @@
 import json
+import time
 import sys
 from pathlib import Path
 import datetime as dt
@@ -83,6 +84,7 @@ def main():
     print(f"\n── Step 1: Authenticating ──")
     try:
         session = get_session()
+        time.sleep(2)  # let the session settle before first data call
     except Exception as ex:
         print(f"\n✗ Authentication failed: {ex}")
         print(f"Check API key, MPIN and TOTP secret in your .env file.\n")
