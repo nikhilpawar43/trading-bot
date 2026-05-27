@@ -10,6 +10,7 @@ from data.instruments import get_token
 from orders.order_manager import OrderManager
 from strategy.signal_engine import run_signal_engine
 from utils.telegram_notifier import notify
+from utils.logger import log_signals, log_daily_summary
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -244,6 +245,17 @@ def main():
         save_positions(order_manager.positions)
 
     # 7) Final status and summary
+    # Log every stock's signal score for today
+    # entered_symbols = stocks where enter_trade() was actually called
+    entered_symbols = [
+        row["symbol"]
+        for _, row in candidates.iterrows()
+        if row["symbol"] in order_manager.positions
+    ] if 'candidates' in dir() else []
+
+    log_signals(summary, data, entered_symbols)
+    log_daily_summary(order_manager)
+
     order_manager.print_status()
 
     print(f"  Run complete   : {now_ist().strftime('%H:%M:%S')} IST")
