@@ -14,7 +14,7 @@ from utils.telegram_notifier import notify
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 # Program Settings
-TEST_MODE = True
+BYPASS_MARKET_OPEN_CHECK = False
 CAPITAL = 100_000
 RISK_PER_TRADE = 0.02
 DAILY_LOSS_LIMIT = 0.05
@@ -26,6 +26,9 @@ PAPER = True
 
 DATA_INTERVAL = "ONE_DAY"
 LOOKBACK_DAYS = 180
+
+UNIVERSE_MODE = "NIFTY50"   # expand from NIFTY50 to all sectors
+SECTOR_FILTER = False       # auto-exclude stocks from weak sectors
 
 BASE_DIR = Path(__file__).parent
 POSITIONS_FILE = BASE_DIR / "positions.json"
@@ -124,7 +127,7 @@ def main():
     print(f"{'=' * 70}")
 
     # 1) Market hours check
-    if not TEST_MODE and not is_market_open():
+    if not BYPASS_MARKET_OPEN_CHECK and not is_market_open():
         print(f"\nMarket closed at {now.strftime('%H:%M')} IST")
         print(f"Trading hours: 09:15 – 15:30 IST, Monday – Friday")
         print(f"Schedule this script with cron to run at 09:30 IST on weekdays.\n")

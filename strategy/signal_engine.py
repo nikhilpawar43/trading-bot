@@ -1,5 +1,5 @@
 from data.fetch_historical import fetch_candles
-from config.universe import get_universe
+from config.universe import get_universe, check_sector_health, filter_by_sector_health
 from config.universe import get_tradeable_stocks
 
 import pandas as pd
@@ -65,8 +65,14 @@ def get_latest_signal(df, symbol):
         'stop_short': round(row['close'] + 1.5 * atr, 2),
     }
 
-def run_signal_engine(session, interval, from_date, to_date):
-    universe = get_universe()
+def run_signal_engine(session, interval, from_date, to_date, universe_mode="MULTI_SECTOR", sector_filter=True):
+    """
+    Parameters
+    ----------
+    universe_mode : "NIFTY50" | "LARGE_CAP" | "MULTI_SECTOR" etc.
+    sector_filter : True = exclude stocks from weak sectors
+    """
+    universe = get_universe(mode=universe_mode)
     print(f"\nFetching data for {len(universe)} Nifty 50 stocks ...")
 
     print(f"Interval : {interval}")
@@ -82,22 +88,41 @@ def run_signal_engine(session, interval, from_date, to_date):
         except Exception as ex:
             print(f"Symbol {symbol} skipped due to {ex}.")
 
-        print(f"\nApplying filters ...")
-        tradeable_stocks = get_tradeable_stocks(data_dict)
-        print(f"{len(tradeable_stocks)} of {len(universe)} stocks passed filters")
+    # ── Sector health check
+    if sector_filter:
+        print("\n── Sector health ──")
+        sector_health = check_sector_health(data_dict)
+        for sector, health in sector_health.items():
+            status = "✓ Healthy" if health["healthy"] else "✗ Weak"
+            print(f"{sector:<10} {status}  "
+                  f"({health['bullish_pct']:.0f}% stocks bullish)")
+    else:
+        sector_health = None
 
-        print("\nGenerating signals ...")
-        summary = []
-        for symbol in tradeable_stocks:
-            df = generate_signals(data_dict[symbol])
-            data_dict[symbol] = df
-            summary.append(get_latest_signal(df, symbol))
-            print(f"{symbol:12}  score={summary[-1]['signal_score']:+d} -> {summary[-1]['signal_label']}")
+    # ── Liquidity and volatility filter
+    print(f"\nApplying filters ...")
+    tradeable_stocks = get_tradeable_stocks(data_dict)
+    print(f"{len(tradeable_stocks)} of {len(universe)} stocks passed filters")
+
+    print("\nGenerating signals ...")
+    summary = []
+    for symbol in tradeable_stocks:
+        df = generate_signals(data_dict[symbol])
+        data_dict[symbol] = df
+        summary.append(get_latest_signal(df, symbol))
+        print(f"{symbol:12}  score={summary[-1]['signal_score']:+d} -> {summary[-1]['signal_label']}")
 
     summary_df = pd.DataFrame(summary)
-    if not summary_df.empty:
-        summary_df = summary_df.sort_values('signal_score', ascending=False)
-        summary_df = summary_df.reset_index(drop=True)
+    if summary_df.empty:
+        return data_dict, summary_df
+
+    # ── Apply sector health filter
+    if sector_filter and sector_health:
+        print(f"\n── Sector filter ──")
+        summary_df = filter_by_sector_health(summary_df, sector_health, data_dict)
+
+    summary_df = summary_df.sort_values('signal_score', ascending=False)
+    summary_df = summary_df.reset_index(drop=True)
 
     return data_dict, summary_df
 

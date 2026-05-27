@@ -4,7 +4,7 @@ from config.connect import get_session
 from data.instruments import get_token
 
 # AngelOne rate limit: ~1 request per second for historical data
-API_CALL_DELAY = 2.0   # seconds to wait after every getCandleData call
+API_CALL_DELAY = 1.0   # seconds to wait after every getCandleData call
 
 def fetch_candles(obj, symbol, interval, from_date, to_date):
     """
