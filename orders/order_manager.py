@@ -38,7 +38,14 @@ class OrderManager:
     def available_slots(self):
         return self.max_positions - len(self.positions)
 
-    def exit_trade(self, symbol, exit_price, reason="MANUAL"):
+    def exit_trade(self, symbol, exit_price, reason="MANUAL", place_order=True):
+        """
+            Close an open position and record P&L.
+
+            place_order : True  → place the exit order with AngelOne (default)
+                          False → broker already executed the exit, just record it
+                                  (used when stop order was triggered by AngelOne)
+            """
         if symbol not in self.positions:
             print(f"{symbol} not in open positions")
             return
@@ -47,13 +54,19 @@ class OrderManager:
         exit_side = 'SELL' if position['side'] == 'BUY' else 'BUY'
         qty = position['qty']
 
-        try:
-            token, trading_symbol = get_token(symbol)
-        except Exception as ex:
-            print(f"{symbol} — token lookup failed: {ex}")
-            return
+        # Only place an order if the broker has NOT already handled the exit
+        if place_order:
+            try:
+                token, trading_symbol = get_token(symbol)
+            except Exception as ex:
+                print(f"{symbol} — token lookup failed: {ex}")
+                return
+            self._place_order(symbol, trading_symbol, token, qty, exit_side)
+        else:
+            tag = "[PAPER]" if self.paper else "[LIVE]"
+            print(f"{tag}  {exit_side:4}  {qty:>5} × {symbol}  "
+                  f"[already executed by broker — recording only]")
 
-        self._place_order(symbol, trading_symbol, token, qty, exit_side)
 
         # Calculate P&L
         if position['side'] == 'BUY':
@@ -212,6 +225,41 @@ class OrderManager:
             print(f"Order failed for {symbol}: {ex}")
             return None
 
+    def _place_stop_order(self, symbol, trading_symbol, token, qty, stop_price, direction):
+        tag = "[PAPER]" if self.paper else "[LIVE]"
+        print(f"{tag}  SL-M  {direction:4}  {qty:>5} × {symbol}  "
+              f"trigger ₹{stop_price:.2f}")
+
+        if self.paper:
+            return {
+                "status": True,
+                "orderId": f"PAPER_SL_{symbol}_{dt.datetime.now():%H%M%S}",
+            }
+
+        params = {
+            "variety": "NORMAL",
+            "tradingsymbol": trading_symbol,
+            "symboltoken": token,
+            "transactiontype": direction,
+            "exchange": "NSE",
+            "ordertype": "SL-M",  # stop loss market
+            "producttype": "DELIVERY",
+            "duration": "DAY",  # valid for today only — re-placed tomorrow
+            "price": "0",  # 0 = market execution once triggered
+            "squareoff": "0",
+            "stoploss": "0",
+            "quantity": str(qty),
+            "triggerprice": str(round(stop_price, 2)),  # the trigger level
+        }
+
+        try:
+            res = self.session.placeOrder(params)
+            time.sleep(0.5)
+            return res
+        except Exception as ex:
+            print(f"Stop order placement failed: {ex}")
+            return None
+
     def enter_trade(self, signal_row):
         symbol = signal_row['symbol']
         signal_label = signal_row['signal_label']
@@ -244,12 +292,24 @@ class OrderManager:
         try:
             token, trading_symbol = get_token(symbol)
         except Exception as ex:
-            print(f"  ✗ {symbol} — token lookup failed: {ex}")
+            print(f"{symbol} — token lookup failed: {ex}")
             return
 
         result = self._place_order(symbol, trading_symbol, token, qty, side)
 
         if result and result.get("status", True):
+            # Place the stop-loss order immediately after entry
+            stop_direction = "SELL" if side == "BUY" else "BUY"
+            stop_result = self._place_stop_order(symbol, trading_symbol, token, qty, stop, stop_direction)
+
+            stop_order_id = ""
+            if stop_result and stop_result.get("status", True):
+                stop_order_id = stop_result.get("orderId", "")
+                print(f"Stop order placed — ID: {stop_order_id}")
+            else:
+                print(f"Stop order failed — "
+                      f"exit_checker will monitor manually as fallback")
+
             self.positions[symbol] = {
                 "qty": qty,
                 "entry_price": entry,
@@ -257,6 +317,7 @@ class OrderManager:
                 "target_price": target,
                 "side": side,
                 "order_id": result.get("orderId", ""),
+                "stop_order_id": stop_order_id,
                 "entry_date": dt.date.today().isoformat(),
             }
             print(f"Entry  ₹{entry:>9.2f}  "

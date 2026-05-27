@@ -6,6 +6,7 @@ import datetime as dt
 import pandas as pd
 
 from config.connect import get_session
+from data.instruments import get_token
 from orders.order_manager import OrderManager
 from strategy.signal_engine import run_signal_engine
 
@@ -59,6 +60,54 @@ def save_positions(positions):
             json.dump(positions, f, indent=2)
     except (json.JSONDecodeError, Exception) as ex:
         print(f"Could not save positions.json: {ex}")
+
+def renew_stop_orders(order_manager, data_dict=None):
+    if not order_manager.positions:
+        return
+
+    print(f"\n── Renewing stop orders for "
+          f"{len(order_manager.positions)} position(s) ──")
+
+    for symbol in list(order_manager.positions.keys()):
+        position = order_manager.positions[symbol]
+        side = position['side']
+        stop = position['stop_price']
+        qty = position['qty']
+
+        if data_dict and symbol in data_dict:
+            last = data_dict[symbol].iloc[-1]
+            high = float(last["high"])
+            low = float(last["low"])
+
+            if side == "BUY" and low < stop:
+                print(f"{symbol} — overnight low {low:.2f} "
+                      f"< stop {stop:.2f} — exiting")
+                order_manager.exit_trade(symbol, stop, reason="STOP_LOSS_OVERNIGHT")
+                continue
+
+            if side == "SELL" and high > stop:
+                print(f"{symbol} — overnight high {high:.2f} "
+                      f"> stop {stop:.2f} — exiting")
+                order_manager.exit_trade(symbol, stop, reason="STOP_LOSS_OVERNIGHT")
+                continue
+        try:
+            token, trading_symbol = get_token(symbol)
+        except Exception as ex:
+            print(f"{symbol} — token lookup failed: {ex}")
+            continue
+
+        stop_direction = "SELL" if side == "BUY" else "BUY"
+        stop_result = order_manager._place_stop_order(symbol, trading_symbol, token, qty, stop, stop_direction)
+
+        if stop_result and stop_result.get("status", True):
+            order_manager.positions[symbol]["stop_order_id"] = \
+                stop_result.get("orderId", "")
+            print(f"{symbol} — stop order renewed at ₹{stop:.2f}")
+        else:
+            print(f"{symbol} — stop order renewal failed, "
+                  f"exit_checker will monitor manually")
+
+        time.sleep(1)
 
 def main():
     LOGS_DIR.mkdir(exist_ok=True)
@@ -120,6 +169,8 @@ def main():
 
     try:
         data, summary = run_signal_engine(session=session, interval=DATA_INTERVAL, from_date=from_date, to_date=to_date)
+        renew_stop_orders(order_manager, data_dict=data)
+        save_positions(order_manager.positions)
     except Exception as ex:
         print(f"\nSignal engine error: {ex}")
         save_positions(order_manager.positions)
