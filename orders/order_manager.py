@@ -3,6 +3,7 @@ import time
 
 from data.instruments import get_token
 from utils.logger import log_trade
+from utils.telegram_notifier import notify
 
 
 class OrderManager:
@@ -83,7 +84,12 @@ class OrderManager:
               f"[{reason}]  [{result}]")
         print(f"Session P&L: ₹{self.daily_pnl:>+,.0f}  "
               f"Slots now free: {self.available_slots}/{self.max_positions}")
+
         log_trade("EXIT", symbol, exit_side, qty, exit_price, None, pnl, reason)
+
+        emoji = "✅" if pnl >= 0 else "❌"
+        notify(f"{emoji} <b>EXIT</b> {symbol} [{reason}]\n"
+               f"P&L ₹{pnl:+,.0f}  |  Session P&L ₹{self.daily_pnl:+,.0f}")
 
     def check_exits(self, symbol, latest_row, signal_score=None):
         if symbol not in self.positions:
@@ -193,7 +199,7 @@ class OrderManager:
 
     def _place_order(self, symbol, trading_symbol, token, qty, transaction_type):
         tag = "[PAPER]" if self.paper else "[LIVE]"
-        print(f"  {tag}  {transaction_type:4}  "
+        print(f"{tag}  {transaction_type:4}  "
               f"{qty:>5} × {symbol} ({trading_symbol})  @ MARKET")
 
         if self.paper:
@@ -327,8 +333,10 @@ class OrderManager:
                   f"Risk ₹{qty * risk:,.0f}")
             print(f"Slots used: {len(self.positions)}/{self.max_positions}  "
                   f"Allocated: ₹{self.allocated_capital:,.0f}")
-            log_trade("ENTRY", symbol, side, qty, entry, stop)
 
+            log_trade("ENTRY", symbol, side, qty, entry, stop)
+            notify(f"<b>ENTRY</b> {side} {qty}× {symbol}\n"
+                   f"Entry ₹{entry:.2f}  Stop ₹{stop:.2f}  Target ₹{target:.2f}")
 
     def print_status(self):
         print(f"\n{'=' * 70}")
@@ -362,3 +370,8 @@ class OrderManager:
                 label = "PROFIT ✓" if self.daily_pnl >= 0 else "LOSS ✗"
                 print(f"Session P&L    : ₹{self.daily_pnl:>+12,.0f}  [{label}]")
                 print(f"{'=' * 70}\n")
+
+                notify(f"📊 <b>Daily run complete</b>\n"
+                       f"Open: {', '.join(self.positions.keys()) or 'None'}\n"
+                       f"Session P&L: ₹{self.daily_pnl:+,.0f}\n"
+                       f"Slots free: {self.available_slots}/{self.max_positions}")

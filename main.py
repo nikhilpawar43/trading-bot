@@ -9,6 +9,7 @@ from config.connect import get_session
 from data.instruments import get_token
 from orders.order_manager import OrderManager
 from strategy.signal_engine import run_signal_engine
+from utils.telegram_notifier import notify
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -151,6 +152,9 @@ def main():
                                  paper=PAPER)
 
     order_manager.positions = load_positions()
+
+    notify(f"<b>Bot started</b> — {now.strftime('%d %b %Y %H:%M')} IST\n"
+           f"Slots: {len(order_manager.positions)}/{MAX_POSITIONS} used")
 
     if order_manager.positions:
         print(f"Restored {len(order_manager.positions)} open position(s): "
