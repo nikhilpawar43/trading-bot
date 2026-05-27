@@ -175,7 +175,7 @@ def main():
     to_date = today.strftime("%Y-%m-%d 15:30")
 
     try:
-        data, summary = run_signal_engine(session=session, interval=DATA_INTERVAL, from_date=from_date, to_date=to_date)
+        data, summary = run_signal_engine(session=session, interval=DATA_INTERVAL, from_date=from_date, to_date=to_date, universe_mode=UNIVERSE_MODE, sector_filter=SECTOR_FILTER)
         renew_stop_orders(order_manager, data_dict=data)
         save_positions(order_manager.positions)
     except Exception as ex:
