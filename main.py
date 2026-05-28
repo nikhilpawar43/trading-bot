@@ -11,6 +11,7 @@ from orders.order_manager import OrderManager
 from strategy.signal_engine import run_signal_engine
 from utils.telegram_notifier import notify
 from utils.logger import log_signals, log_daily_summary
+from config.market_calendar import is_market_open
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -39,14 +40,6 @@ IST = dt.timezone(dt.timedelta(hours=5, minutes=30))
 
 def now_ist():
     return dt.datetime.now(tz=IST)
-
-
-def is_market_open():
-    now = now_ist()
-    if now.weekday() >= 5:
-        return False
-    return dt.time(9, 15) <= now.time() <= dt.time(15, 30)
-
 
 def load_positions():
     if not POSITIONS_FILE.exists():

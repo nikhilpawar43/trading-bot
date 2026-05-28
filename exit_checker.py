@@ -2,8 +2,9 @@ import time
 from pathlib import Path
 
 from config.connect import get_session
-from main import now_ist, is_market_open, load_positions, save_positions
+from main import now_ist, load_positions, save_positions
 from orders.order_manager import OrderManager
+from config.market_calendar import is_market_open
 
 import datetime as dt
 
