@@ -371,7 +371,7 @@ class OrderManager:
                 print(f"Session P&L    : ₹{self.daily_pnl:>+12,.0f}  [{label}]")
                 print(f"{'=' * 70}\n")
 
-                notify(f"📊 <b>Daily run complete</b>\n"
-                       f"Open: {', '.join(self.positions.keys()) or 'None'}\n"
-                       f"Session P&L: ₹{self.daily_pnl:+,.0f}\n"
-                       f"Slots free: {self.available_slots}/{self.max_positions}")
+            notify(f"📊 <b>Daily run complete</b>\n"
+                   f"Open: {', '.join(self.positions.keys()) or 'None'}\n"
+                   f"Session P&L: ₹{self.daily_pnl:+,.0f}\n"
+                   f"Slots free: {self.available_slots}/{self.max_positions}")
